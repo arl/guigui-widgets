@@ -1,4 +1,4 @@
-package dock
+package docked
 
 import (
 	"image"

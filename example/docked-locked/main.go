@@ -11,7 +11,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 
-	"github.com/arl/guigui-widgets/dock"
+	"github.com/arl/guigui-widgets/docked"
 )
 
 // Root hosts a single dock tree: a locked "Emulator" node that can never
@@ -21,7 +21,7 @@ type Root struct {
 
 	background basicwidget.Background
 	menubar    basicwidget.Menubar[string]
-	dock       *dock.Root
+	dock       *docked.Root
 
 	screen      emulatorScreen
 	registers   textPanel
@@ -30,12 +30,12 @@ type Root struct {
 	console     textPanel
 	breakpoints textPanel
 
-	emulatorNode    *dock.Node
-	registersNode   *dock.Node
-	memoryNode      *dock.Node
-	tilesNode       *dock.Node
-	consoleNode     *dock.Node
-	breakpointsNode *dock.Node
+	emulatorNode    *docked.Node
+	registersNode   *docked.Node
+	memoryNode      *docked.Node
+	tilesNode       *docked.Node
+	consoleNode     *docked.Node
+	breakpointsNode *docked.Node
 }
 
 func (r *Root) Build(context *guigui.Context, adder *guigui.ChildAdder) error {
@@ -47,7 +47,7 @@ func (r *Root) Build(context *guigui.Context, adder *guigui.ChildAdder) error {
 	// present, so there is nothing to toggle.
 	nodes := []struct {
 		text string
-		node *dock.Node
+		node *docked.Node
 	}{
 		{text: "CPU Registers", node: r.registersNode},
 		{text: "Memory Viewer", node: r.memoryNode},
@@ -75,7 +75,7 @@ func (r *Root) Build(context *guigui.Context, adder *guigui.ChildAdder) error {
 	return nil
 }
 
-func (r *Root) toggleNode(node *dock.Node) {
+func (r *Root) toggleNode(node *docked.Node) {
 	if r.dock.Contains(node) {
 		r.dock.Remove(node)
 		return
@@ -83,13 +83,13 @@ func (r *Root) toggleNode(node *dock.Node) {
 	// Prefer stacking the newly shown panel onto another visible dockable
 	// panel; the always-present emulator node is the fallback anchor so the
 	// first toggle has somewhere to attach.
-	for _, target := range []*dock.Node{r.registersNode, r.memoryNode, r.tilesNode, r.consoleNode, r.breakpointsNode} {
+	for _, target := range []*docked.Node{r.registersNode, r.memoryNode, r.tilesNode, r.consoleNode, r.breakpointsNode} {
 		if target != node && r.dock.Contains(target) {
-			r.dock.Add(node, target, dock.Center)
+			r.dock.Add(node, target, docked.Center)
 			return
 		}
 	}
-	r.dock.Add(node, r.emulatorNode, dock.Right)
+	r.dock.Add(node, r.emulatorNode, docked.Right)
 }
 
 func (r *Root) Layout(context *guigui.Context, widgetBounds *guigui.WidgetBounds, layouter *guigui.ChildLayouter) {
@@ -102,7 +102,7 @@ func (r *Root) Layout(context *guigui.Context, widgetBounds *guigui.WidgetBounds
 }
 
 // emulatorScreen is a stand-in for the game viewport. Docked as a
-// [dock.LockedGroup], it can never be dragged away, removed, or hidden behind
+// [docked.LockedGroup], it can never be dragged away, removed, or hidden behind
 // another tab, even though it lives in the same tree as the other panels.
 type emulatorScreen struct {
 	guigui.DefaultWidget
@@ -185,26 +185,26 @@ func main() {
 	// LockedGroup, unlike Group, can never be dragged out, removed, or
 	// covered by a tab dropped on top of it - it just always sits in the
 	// tree, wherever the initial layout (or a later Add) places it.
-	root.emulatorNode = dock.LockedGroup("emulator", &dock.Panel{Title: "Emulator", Content: &root.screen})
-	root.registersNode = dock.Group("registers", &dock.Panel{Title: "CPU Registers", Content: &root.registers})
-	root.memoryNode = dock.Group("memory", &dock.Panel{Title: "Memory Viewer", Content: &root.memory})
-	root.tilesNode = dock.Group("tiles", &dock.Panel{Title: "Tile Viewer", Content: &root.tiles})
-	root.consoleNode = dock.Group("console", &dock.Panel{Title: "Console", Content: &root.console})
-	root.breakpointsNode = dock.Group("breakpoints", &dock.Panel{Title: "Breakpoints", Content: &root.breakpoints})
+	root.emulatorNode = docked.LockedGroup("emulator", &docked.Panel{Title: "Emulator", Content: &root.screen})
+	root.registersNode = docked.Group("registers", &docked.Panel{Title: "CPU Registers", Content: &root.registers})
+	root.memoryNode = docked.Group("memory", &docked.Panel{Title: "Memory Viewer", Content: &root.memory})
+	root.tilesNode = docked.Group("tiles", &docked.Panel{Title: "Tile Viewer", Content: &root.tiles})
+	root.consoleNode = docked.Group("console", &docked.Panel{Title: "Console", Content: &root.console})
+	root.breakpointsNode = docked.Group("breakpoints", &docked.Panel{Title: "Breakpoints", Content: &root.breakpoints})
 
 	// The emulator gets most of the width; registers/memory share a column
 	// beside it, and the console sits below everything.
-	initialLayout := dock.Split(
-		dock.Vertical, 0.75,
-		dock.Split(
-			dock.Horizontal, 0.7,
+	initialLayout := docked.Split(
+		docked.Vertical, 0.75,
+		docked.Split(
+			docked.Horizontal, 0.7,
 			root.emulatorNode,
-			dock.Split(dock.Vertical, 0.5, root.registersNode, root.memoryNode),
+			docked.Split(docked.Vertical, 0.5, root.registersNode, root.memoryNode),
 		),
 		root.consoleNode,
 	)
 	var err error
-	root.dock, err = dock.NewRoot(initialLayout, root.tilesNode, root.breakpointsNode)
+	root.dock, err = docked.NewRoot(initialLayout, root.tilesNode, root.breakpointsNode)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return

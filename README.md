@@ -1,11 +1,11 @@
 # guigui-widgets: library of reusable widgets for the [Guigui](github.com/guigui-gui/guigui) library
 
 
-## dock
+## docked
 
-Complete docking system for complex and user-friendly UI, see [./example/dock](./example/dock/) and , see [./example/dock-locked](./example/dock-locked/)
+Complete docking system for complex and user-friendly UI, see [./example/docked](./example/docked/) and , see [./example/docked-locked](./example/docked-locked/)
 
-![docking](./images/docking.png)
+![docked](./images/docked.png)
 
 
 ## datepicker

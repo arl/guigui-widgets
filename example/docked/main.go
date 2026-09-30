@@ -8,7 +8,7 @@ import (
 	"github.com/guigui-gui/guigui"
 	"github.com/guigui-gui/guigui/basicwidget"
 
-	"github.com/arl/guigui-widgets/dock"
+	"github.com/arl/guigui-widgets/docked"
 )
 
 // Root hosts the docking layout that the example showcases.
@@ -17,7 +17,7 @@ type Root struct {
 
 	background basicwidget.Background
 	menubar    basicwidget.Menubar[string]
-	dock       *dock.Root
+	dock       *docked.Root
 
 	editor     editorPanel
 	form       formPanel
@@ -26,11 +26,11 @@ type Root struct {
 	paneview   paneViewPanel
 	settings   settingsPanel
 
-	formNode     *dock.Node
-	editorNode   *dock.Node
-	consoleNode  *dock.Node
-	paneViewNode *dock.Node
-	settingsNode *dock.Node
+	formNode     *docked.Node
+	editorNode   *docked.Node
+	consoleNode  *docked.Node
+	paneViewNode *docked.Node
+	settingsNode *docked.Node
 }
 
 func (r *Root) Build(context *guigui.Context, adder *guigui.ChildAdder) error {
@@ -40,7 +40,7 @@ func (r *Root) Build(context *guigui.Context, adder *guigui.ChildAdder) error {
 
 	nodes := []struct {
 		text string
-		node *dock.Node
+		node *docked.Node
 	}{
 		{text: "Form and Properties", node: r.formNode},
 		{text: "Editor", node: r.editorNode},
@@ -114,25 +114,25 @@ func (r *Root) Layout(context *guigui.Context, widgetBounds *guigui.WidgetBounds
 	layouter.LayoutWidget(r.dock, image.Rect(b.Min.X, menuBounds.Max.Y, b.Max.X, b.Max.Y))
 }
 
-func (r *Root) toggleNode(node *dock.Node) {
+func (r *Root) toggleNode(node *docked.Node) {
 	if r.dock.Contains(node) {
 		r.dock.Remove(node)
 		return
 	}
-	for _, target := range []*dock.Node{r.formNode, r.editorNode, r.paneViewNode, r.settingsNode, r.consoleNode} {
+	for _, target := range []*docked.Node{r.formNode, r.editorNode, r.paneViewNode, r.settingsNode, r.consoleNode} {
 		if target != node && r.dock.Contains(target) {
-			r.dock.Add(node, target, dock.Center)
+			r.dock.Add(node, target, docked.Center)
 			return
 		}
 	}
-	r.dock.Add(node, nil, dock.Center)
+	r.dock.Add(node, nil, docked.Center)
 }
 
 // paneViewPanel hosts a PaneView to showcase the vertical stack of collapsible panes.
 type paneViewPanel struct {
 	guigui.DefaultWidget
 
-	paneView dock.PaneView
+	paneView docked.PaneView
 
 	pane1 basicwidget.TextInput
 	pane2 basicwidget.TextInput
@@ -153,9 +153,9 @@ func (p *paneViewPanel) Build(context *guigui.Context, adder *guigui.ChildAdder)
 	p.pane3.SetPlaceholder("Pane 3 content…")
 
 	if p.paneView.Len() == 0 {
-		p.paneView.AddPane(dock.NewPane("First", &p.pane1))
-		p.paneView.AddPane(dock.NewPane("Second", &p.pane2))
-		p.paneView.AddPane(dock.NewPane("Third", &p.pane3))
+		p.paneView.AddPane(docked.NewPane("First", &p.pane1))
+		p.paneView.AddPane(docked.NewPane("Second", &p.pane2))
+		p.paneView.AddPane(docked.NewPane("Third", &p.pane3))
 	}
 	return nil
 }
@@ -392,33 +392,33 @@ func (c *consolePanel) Layout(context *guigui.Context, widgetBounds *guigui.Widg
 
 func main() {
 	root := &Root{}
-	root.formNode = dock.Group(
+	root.formNode = docked.Group(
 		"form-properties",
-		&dock.Panel{Title: "Form", Content: &root.form},
-		&dock.Panel{Title: "Properties", Content: &root.properties},
+		&docked.Panel{Title: "Form", Content: &root.form},
+		&docked.Panel{Title: "Properties", Content: &root.properties},
 	)
-	root.editorNode = dock.Group("editor", &dock.Panel{Title: "Editor", Content: &root.editor})
-	root.consoleNode = dock.Group("console", &dock.Panel{Title: "Console", Content: &root.console})
-	root.paneViewNode = dock.Group("pane-view", &dock.Panel{Title: "PaneView", Content: &root.paneview})
-	root.settingsNode = dock.Group("settings", &dock.Panel{Title: "Settings", Content: &root.settings})
+	root.editorNode = docked.Group("editor", &docked.Panel{Title: "Editor", Content: &root.editor})
+	root.consoleNode = docked.Group("console", &docked.Panel{Title: "Console", Content: &root.console})
+	root.paneViewNode = docked.Group("pane-view", &docked.Panel{Title: "PaneView", Content: &root.paneview})
+	root.settingsNode = docked.Group("settings", &docked.Panel{Title: "Settings", Content: &root.settings})
 
 	// A vertical split: a tab group (Form | Properties) beside the editor on
 	// top, and the console docked at the bottom.
-	initialLayout := dock.Split(
-		dock.Vertical, 0.7,
-		dock.Split(
-			dock.Horizontal, 0.35,
+	initialLayout := docked.Split(
+		docked.Vertical, 0.7,
+		docked.Split(
+			docked.Horizontal, 0.35,
 			root.formNode,
 			root.editorNode,
 		),
-		dock.Split(
-			dock.Horizontal, 0.5,
+		docked.Split(
+			docked.Horizontal, 0.5,
 			root.paneViewNode,
 			root.settingsNode,
 		),
 	)
 	var err error
-	root.dock, err = dock.NewRoot(initialLayout, root.consoleNode)
+	root.dock, err = docked.NewRoot(initialLayout, root.consoleNode)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return
