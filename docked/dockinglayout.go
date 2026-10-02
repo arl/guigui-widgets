@@ -69,7 +69,7 @@ func LockedGroup(id string, panels ...*Panel) *Node {
 	return node
 }
 
-func (n *Node) Locked() bool {
+func (n *Node) locked() bool {
 	return n != nil && n.group != nil && n.group.locked
 }
 
@@ -101,7 +101,7 @@ type dockGroupBounds struct {
 type dockOverlay struct {
 	guigui.DefaultWidget
 
-	dock *Layout
+	dock *layout
 }
 
 func (o *dockOverlay) HandlePointingInput(context *guigui.Context, widgetBounds *guigui.WidgetBounds) guigui.HandleInputResult {
@@ -139,10 +139,10 @@ func (o *dockOverlay) Draw(context *guigui.Context, widgetBounds *guigui.WidgetB
 	vector.StrokeRect(dst, float32(r.Min.X), float32(r.Min.Y), float32(r.Dx()), float32(r.Dy()), 1, accent, false)
 }
 
-// Layout arranges dockable panels in a nestable tree of groups (tabs)
+// layout arranges dockable panels in a nestable tree of groups (tabs)
 // and splits. Dividers resize; dragging a tab re-docks it, either as another
 // tab (center) or as a new group split onto an edge.
-type Layout struct {
+type layout struct {
 	guigui.DefaultWidget
 	redrawTarget guigui.Widget
 
@@ -186,7 +186,7 @@ type Layout struct {
 	onClosePanel func(*Panel)
 }
 
-func (d *Layout) requestRedraw() {
+func (d *layout) requestRedraw() {
 	if d.redrawTarget != nil {
 		guigui.RequestRedraw(d.redrawTarget)
 		return
@@ -194,9 +194,11 @@ func (d *Layout) requestRedraw() {
 	guigui.RequestRedraw(d)
 }
 
+// Root is a docking layout. Register every leaf with [NewRoot], including
+// leaves that start hidden, then add the root to the widget tree.
 type Root struct {
 	guigui.DefaultWidget
-	layout        Layout
+	layout        layout
 	nodes         map[string]*Node
 	onPanelClosed func(*Node)
 }
@@ -215,7 +217,7 @@ func NewRoot(initial *Node, nodes ...*Node) (*Root, error) {
 		}
 		r.nodes[node.ID] = node
 	}
-	r.layout.SetRoot(initial)
+	r.layout.setRoot(initial)
 	return r, nil
 }
 
@@ -223,7 +225,7 @@ func (r *Root) SetOnPanelClosed(f func(*Node)) {
 	r.onPanelClosed = f
 }
 
-func (r *Root) ContentAt(p image.Point) guigui.Widget {
+func (r *Root) contentAt(p image.Point) guigui.Widget {
 	if r.layout.capturingPointer() {
 		return nil
 	}
@@ -247,7 +249,7 @@ func (r *Root) ContentAt(p image.Point) guigui.Widget {
 	return nil
 }
 
-func (r *Root) SelectedContent(node *Node) guigui.Widget {
+func (r *Root) selectedContent(node *Node) guigui.Widget {
 	if node == nil {
 		return nil
 	}
@@ -276,7 +278,7 @@ func (r *Root) Build(context *guigui.Context, adder *guigui.ChildAdder) error {
 
 func (r *Root) closePanel(panel *Panel) {
 	n := r.nodeForPanel(panel)
-	if n == nil || n.Locked() {
+	if n == nil || n.locked() {
 		return
 	}
 	if !r.Remove(n) {
@@ -315,7 +317,7 @@ func (r *Root) Draw(context *guigui.Context, widgetBounds *guigui.WidgetBounds, 
 	r.layout.Draw(context, widgetBounds, dst)
 }
 
-func (r *Root) Contains(node *Node) bool { return r.layout.Contains(node) }
+func (r *Root) Contains(node *Node) bool { return r.layout.contains(node) }
 
 func (r *Root) WriteStateKey(context *guigui.Context, w *guigui.StateKeyWriter) {
 	r.layout.WriteStateKey(context, w)
@@ -325,7 +327,7 @@ func (r *Root) WriteStateKey(context *guigui.Context, w *guigui.StateKeyWriter) 
 // only) or restore a debug layout without recreating registered nodes.
 // Edge bars are cleared; call [Root.SetEdgeBar] afterwards if needed.
 func (r *Root) ReplaceTree(node *Node) {
-	r.layout.SetRoot(node)
+	r.layout.setRoot(node)
 	r.layout.left = nil
 	r.layout.right = nil
 	r.layout.dragPanel = nil
@@ -374,7 +376,7 @@ func (r *Root) SetEdgeBar(position Position, nodes ...*Node) {
 }
 
 func (r *Root) Add(node, target *Node, position Position) bool {
-	if !r.layout.Add(node, target, position) {
+	if !r.layout.add(node, target, position) {
 		return false
 	}
 	guigui.RequestRedraw(r)
@@ -382,7 +384,7 @@ func (r *Root) Add(node, target *Node, position Position) bool {
 }
 
 func (r *Root) Remove(node *Node) bool {
-	if !r.layout.Remove(node) {
+	if !r.layout.remove(node) {
 		return false
 	}
 	guigui.RequestRedraw(r)
@@ -610,10 +612,10 @@ func (r *Root) groupFromSnapshot(snapshot *snapshotTabGroup, seen map[string]str
 		if node == nil {
 			return nil, fmt.Errorf("dock: snapshot references unknown node ID %q", id)
 		}
-		if node.Locked() && len(snapshot.Nodes) > 1 {
+		if node.locked() && len(snapshot.Nodes) > 1 {
 			return nil, fmt.Errorf("dock: locked node %q cannot be tabbed with other nodes", id)
 		}
-		locked = locked || node.Locked()
+		locked = locked || node.locked()
 		seen[id] = struct{}{}
 		panels = append(panels, node.panels...)
 	}
@@ -636,20 +638,20 @@ func leafNodes(node *Node) []*Node {
 	return append(leafNodes(node.split.first), leafNodes(node.split.second)...)
 }
 
-func (d *Layout) SetRoot(root *Node) {
+func (d *layout) setRoot(root *Node) {
 	d.root = root
 }
 
-func (d *Layout) Contains(node *Node) bool {
+func (d *layout) contains(node *Node) bool {
 	return node != nil && len(node.panels) > 0 && d.panelsPresent(node.panels)
 }
 
-// Add adds node next to target at position. Center adds node's panels as tabs
+// add adds node next to target at position. Center adds node's panels as tabs
 // in target's current group. When the layout is empty, target may be nil and
 // node becomes the root. It returns false when node is already present or the
 // target is absent.
-func (d *Layout) Add(node, target *Node, position Position) bool {
-	if node == nil || node.group == nil || len(node.panels) == 0 || d.Contains(node) {
+func (d *layout) add(node, target *Node, position Position) bool {
+	if node == nil || node.group == nil || len(node.panels) == 0 || d.contains(node) {
 		return false
 	}
 	node.group.panels = append(node.group.panels[:0], node.panels...)
@@ -709,10 +711,10 @@ func (d *Layout) Add(node, target *Node, position Position) bool {
 	return true
 }
 
-// Remove removes node's panels from the layout. It returns false when node is
-// absent. The node remains reusable with a later [Layout.Add] call.
-func (d *Layout) Remove(node *Node) bool {
-	if node == nil || len(node.panels) == 0 || !d.Contains(node) || node.Locked() {
+// remove removes node's panels from the layout. It returns false when node is
+// absent. The node remains reusable with a later add call.
+func (d *layout) remove(node *Node) bool {
+	if node == nil || len(node.panels) == 0 || !d.contains(node) || node.locked() {
 		return false
 	}
 	d.root = removePanels(d.root, node.panels)
@@ -737,17 +739,17 @@ func (d *Layout) Remove(node *Node) bool {
 	return true
 }
 
-func (d *Layout) capturingPointer() bool {
+func (d *layout) capturingPointer() bool {
 	return d.dragging != nil || d.dragPanel != nil || d.dragGroupNode != nil
 }
 
-func (d *Layout) WriteStateKey(context *guigui.Context, w *guigui.StateKeyWriter) {
+func (d *layout) WriteStateKey(context *guigui.Context, w *guigui.StateKeyWriter) {
 	w.WriteBool(d.dragging != nil)
 	w.WriteBool(d.dragPanel != nil)
 	w.WriteBool(d.dragGroupNode != nil)
 }
 
-func (d *Layout) handleCapturedPointer(context *guigui.Context) guigui.HandleInputResult {
+func (d *layout) handleCapturedPointer(context *guigui.Context) guigui.HandleInputResult {
 	cursor := image.Pt(ebiten.CursorPosition())
 	if d.dragPanel != nil || d.dragGroupNode != nil {
 		if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
@@ -769,7 +771,7 @@ func (d *Layout) handleCapturedPointer(context *guigui.Context) guigui.HandleInp
 	return guigui.HandleInputResult{}
 }
 
-func (d *Layout) Build(context *guigui.Context, adder *guigui.ChildAdder) error {
+func (d *layout) Build(context *guigui.Context, adder *guigui.ChildAdder) error {
 	if d.root != nil {
 		d.addNode(adder, d.root)
 	}
@@ -793,7 +795,7 @@ func (d *Layout) Build(context *guigui.Context, adder *guigui.ChildAdder) error 
 	return nil
 }
 
-func (d *Layout) addNode(adder *guigui.ChildAdder, node *Node) {
+func (d *layout) addNode(adder *guigui.ChildAdder, node *Node) {
 	if node.group != nil {
 		adder.AddWidget(node.group)
 		nodeGroup := node.group
@@ -812,7 +814,7 @@ func (d *Layout) addNode(adder *guigui.ChildAdder, node *Node) {
 	}
 }
 
-func (d *Layout) Layout(context *guigui.Context, widgetBounds *guigui.WidgetBounds, layouter *guigui.ChildLayouter) {
+func (d *layout) Layout(context *guigui.Context, widgetBounds *guigui.WidgetBounds, layouter *guigui.ChildLayouter) {
 	d.dividers = slices.Delete(d.dividers, 0, len(d.dividers))
 	d.groupBounds = slices.Delete(d.groupBounds, 0, len(d.groupBounds))
 	b := widgetBounds.Bounds()
@@ -851,11 +853,11 @@ func (d *Layout) Layout(context *guigui.Context, widgetBounds *guigui.WidgetBoun
 	layouter.LayoutWidget(&d.overlay, b)
 }
 
-func (d *Layout) dividerThickness(context *guigui.Context) int {
+func (d *layout) dividerThickness(context *guigui.Context) int {
 	return max(8, basicwidget.UnitSize(context)/4)
 }
 
-func (d *Layout) splitExtents(context *guigui.Context, split *split, available int) (int, int) {
+func (d *layout) splitExtents(context *guigui.Context, split *split, available int) (int, int) {
 	minExtent := basicwidget.UnitSize(context)
 	first := int(float64(available) * split.ratio)
 	second := available - first
@@ -868,7 +870,7 @@ func (d *Layout) splitExtents(context *guigui.Context, split *split, available i
 	return first, second
 }
 
-func (d *Layout) layoutNode(context *guigui.Context, node *Node, bounds image.Rectangle, layouter *guigui.ChildLayouter) {
+func (d *layout) layoutNode(context *guigui.Context, node *Node, bounds image.Rectangle, layouter *guigui.ChildLayouter) {
 	if node.group != nil {
 		layouter.LayoutWidget(node.group, bounds)
 		d.groupBounds = append(d.groupBounds, dockGroupBounds{node: node, bounds: bounds})
@@ -924,7 +926,7 @@ func (d *Layout) layoutNode(context *guigui.Context, node *Node, bounds image.Re
 	d.layoutNode(context, split.second, second, layouter)
 }
 
-func (d *Layout) HandlePointingInput(context *guigui.Context, widgetBounds *guigui.WidgetBounds) guigui.HandleInputResult {
+func (d *layout) HandlePointingInput(context *guigui.Context, widgetBounds *guigui.WidgetBounds) guigui.HandleInputResult {
 	cursor := image.Pt(ebiten.CursorPosition())
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 		for _, bar := range []*edgeBar{d.left, d.right} {
@@ -956,7 +958,7 @@ func (d *Layout) HandlePointingInput(context *guigui.Context, widgetBounds *guig
 	return guigui.HandleInputResult{}
 }
 
-func (d *Layout) beginDrag(panel *Panel, group *group, cursor image.Point) {
+func (d *layout) beginDrag(panel *Panel, group *group, cursor image.Point) {
 	d.dragPanel = panel
 	d.dragGroup = group
 	d.sourceNode = findGroupNode(d.root, group)
@@ -971,7 +973,7 @@ func (d *Layout) beginDrag(panel *Panel, group *group, cursor image.Point) {
 	d.dropRoot = false
 }
 
-func (d *Layout) beginDragFromBar(panel *Panel, bar *edgeBar, cursor image.Point) {
+func (d *layout) beginDragFromBar(panel *Panel, bar *edgeBar, cursor image.Point) {
 	d.dragPanel = panel
 	d.dragGroup = bar.group
 	d.sourceNode = nil
@@ -985,7 +987,7 @@ func (d *Layout) beginDragFromBar(panel *Panel, bar *edgeBar, cursor image.Point
 	d.dropTabIndex = 0
 }
 
-func (d *Layout) beginGroupDrag(group *group, cursor image.Point) {
+func (d *layout) beginGroupDrag(group *group, cursor image.Point) {
 	d.dragGroupNode = findGroupNode(d.root, group)
 	d.dragPanel = nil
 	d.dragGroup = nil
@@ -998,7 +1000,7 @@ func (d *Layout) beginGroupDrag(group *group, cursor image.Point) {
 	d.dropTabIndex = 0
 }
 
-func (d *Layout) updateDropTarget(context *guigui.Context, cursor image.Point) {
+func (d *layout) updateDropTarget(context *guigui.Context, cursor image.Point) {
 	d.dropNode = nil
 	d.dropEdge = dropEdgeNone
 	d.dropBar = edgeSideNone
@@ -1101,7 +1103,7 @@ func (d *Layout) updateDropTarget(context *guigui.Context, cursor image.Point) {
 	}
 }
 
-func (d *Layout) cursorInRootChild(cursor image.Point) bool {
+func (d *layout) cursorInRootChild(cursor image.Point) bool {
 	if d.root == nil || d.root.split == nil {
 		return false
 	}
@@ -1126,7 +1128,7 @@ func nodeIsDescendantOf(ancestor, target *Node) bool {
 	return ancestor.split != nil && (nodeIsDescendantOf(ancestor.split.first, target) || nodeIsDescendantOf(ancestor.split.second, target))
 }
 
-func (d *Layout) finishDrag() {
+func (d *layout) finishDrag() {
 	switch {
 	case d.dragGroupNode != nil:
 		if d.dropTabGroup != nil {
@@ -1171,7 +1173,7 @@ func (d *Layout) finishDrag() {
 // movePanel removes panel from its source (a tree group or an edge bar) and
 // re-docks it: into target's group on a center drop, or as a new group split
 // next to target on an edge.
-func (d *Layout) movePanel(panel *Panel, source *group, fromBar edgeSide, targetNode *Node, edge dropEdge) {
+func (d *layout) movePanel(panel *Panel, source *group, fromBar edgeSide, targetNode *Node, edge dropEdge) {
 	// A tab dropped back onto its own group splits it off as a sibling group.
 	if fromBar == edgeSideNone && targetNode.group == source {
 		if len(source.panels) <= 1 {
@@ -1205,14 +1207,14 @@ func (d *Layout) movePanel(panel *Panel, source *group, fromBar edgeSide, target
 	d.root = attachNode(d.root, targetNode, &Node{group: newGroup}, edge)
 }
 
-func (d *Layout) movePanelToRoot(panel *Panel, source *group, fromBar edgeSide, edge dropEdge) {
+func (d *layout) movePanelToRoot(panel *Panel, source *group, fromBar edgeSide, edge dropEdge) {
 	root := d.root
 	d.removePanelFromSource(panel, source, fromBar)
 	newNode := &Node{group: &group{panels: []*Panel{panel}, selected: 0}}
 	d.root = attachNode(d.root, root, newNode, edge)
 }
 
-func (d *Layout) moveGroupToRoot(sourceNode *Node, edge dropEdge) {
+func (d *layout) moveGroupToRoot(sourceNode *Node, edge dropEdge) {
 	root := d.root
 	if sourceNode == root {
 		return
@@ -1221,7 +1223,7 @@ func (d *Layout) moveGroupToRoot(sourceNode *Node, edge dropEdge) {
 	d.root = attachNode(d.root, root, sourceNode, edge)
 }
 
-func (d *Layout) insertPanelAt(panel *Panel, source *group, fromBar edgeSide, target *group, index int) {
+func (d *layout) insertPanelAt(panel *Panel, source *group, fromBar edgeSide, target *group, index int) {
 	if source == target {
 		oldIndex := slices.Index(source.panels, panel)
 		if oldIndex < 0 {
@@ -1242,7 +1244,7 @@ func (d *Layout) insertPanelAt(panel *Panel, source *group, fromBar edgeSide, ta
 	target.selected = index
 }
 
-func (d *Layout) insertGroupAt(sourceNode *Node, target *group, index int) {
+func (d *layout) insertGroupAt(sourceNode *Node, target *group, index int) {
 	source := sourceNode.group
 	if source == nil || source == target {
 		return
@@ -1258,7 +1260,7 @@ func (d *Layout) insertGroupAt(sourceNode *Node, target *group, index int) {
 	target.selected = index + source.selected
 }
 
-func (d *Layout) removePanelFromSource(panel *Panel, source *group, fromBar edgeSide) {
+func (d *layout) removePanelFromSource(panel *Panel, source *group, fromBar edgeSide) {
 	if !removePanelFromGroup(source, panel) {
 		return
 	}
@@ -1269,7 +1271,7 @@ func (d *Layout) removePanelFromSource(panel *Panel, source *group, fromBar edge
 	d.root = removeNode(d.root, findGroupNode(d.root, source))
 }
 
-func (d *Layout) moveGroupToBar(sourceNode *Node, side edgeSide) {
+func (d *layout) moveGroupToBar(sourceNode *Node, side edgeSide) {
 	if d.barFor(side) != nil {
 		return
 	}
@@ -1281,7 +1283,7 @@ func (d *Layout) moveGroupToBar(sourceNode *Node, side edgeSide) {
 	d.setBar(side, bar)
 }
 
-func (d *Layout) movePanelToBar(panel *Panel, source *group, fromBar, side edgeSide) {
+func (d *layout) movePanelToBar(panel *Panel, source *group, fromBar, side edgeSide) {
 	if fromBar == side {
 		// Dropped back onto the bar it came from; nothing to do.
 		return
@@ -1299,7 +1301,7 @@ func (d *Layout) movePanelToBar(panel *Panel, source *group, fromBar, side edgeS
 	bar.group.selected = len(bar.group.panels) - 1
 }
 
-func (d *Layout) barFor(side edgeSide) *edgeBar {
+func (d *layout) barFor(side edgeSide) *edgeBar {
 	switch side {
 	case edgeSideLeft:
 		return d.left
@@ -1312,7 +1314,7 @@ func (d *Layout) barFor(side edgeSide) *edgeBar {
 // edgeBarDropRect returns the drop-preview area for an edge: the empty
 // remainder of the vertical strip below the existing tabs, or the whole strip
 // when no bar exists yet. It returns an empty rectangle when there is no room.
-func (d *Layout) edgeBarDropRect(context *guigui.Context, side edgeSide) image.Rectangle {
+func (d *layout) edgeBarDropRect(context *guigui.Context, side edgeSide) image.Rectangle {
 	u := basicwidget.UnitSize(context)
 	var zone image.Rectangle
 	var bar *edgeBar
@@ -1340,7 +1342,7 @@ func (d *Layout) edgeBarDropRect(context *guigui.Context, side edgeSide) image.R
 	return image.Rectangle{Min: image.Pt(strip.Min.X, used), Max: image.Pt(strip.Max.X, strip.Max.Y)}
 }
 
-func (d *Layout) setBar(side edgeSide, bar *edgeBar) {
+func (d *layout) setBar(side edgeSide, bar *edgeBar) {
 	switch side {
 	case edgeSideLeft:
 		d.left = bar
@@ -1351,7 +1353,7 @@ func (d *Layout) setBar(side edgeSide, bar *edgeBar) {
 
 // moveGroup re-docks an entire group (keeping its tabs intact) as a sibling
 // of targetNode, split onto edge. The source node keeps its identity.
-func (d *Layout) moveGroup(sourceNode, targetNode *Node, edge dropEdge) {
+func (d *layout) moveGroup(sourceNode, targetNode *Node, edge dropEdge) {
 	if edge == dropEdgeCenter {
 		source := sourceNode.group
 		target := targetNode.group
@@ -1421,7 +1423,7 @@ func groupContainingPanels(node *Node, panels []*Panel) *group {
 	return nil
 }
 
-func (d *Layout) panelsPresent(panels []*Panel) bool {
+func (d *layout) panelsPresent(panels []*Panel) bool {
 	if nodeContainsAnyPanels(d.root, panels) {
 		return true
 	}
@@ -1443,7 +1445,7 @@ func nodeContainsAnyPanels(node *Node, panels []*Panel) bool {
 	return node.split != nil && (nodeContainsAnyPanels(node.split.first, panels) || nodeContainsAnyPanels(node.split.second, panels))
 }
 
-func (d *Layout) groupContainingPanels(panels []*Panel) *group {
+func (d *layout) groupContainingPanels(panels []*Panel) *group {
 	if target := groupContainingPanels(d.root, panels); target != nil {
 		return target
 	}
@@ -1583,7 +1585,7 @@ func replaceNode(node, target, replacement *Node) {
 // dropEdgeAt returns the drop zone the cursor falls in within bounds. Dropping
 // on the tab bar (the top strip) tabs the panel into the group; the outer
 // thirds are the four edge-split targets; the rest is the center.
-func (d *Layout) dropEdgeAt(context *guigui.Context, cursor image.Point, b image.Rectangle) dropEdge {
+func (d *layout) dropEdgeAt(context *guigui.Context, cursor image.Point, b image.Rectangle) dropEdge {
 	u := basicwidget.UnitSize(context)
 	if cursor.Y < b.Min.Y+u {
 		return dropEdgeCenter
@@ -1604,7 +1606,7 @@ func (d *Layout) dropEdgeAt(context *guigui.Context, cursor image.Point, b image
 	}
 }
 
-func (d *Layout) dropRectFor(context *guigui.Context, cursor image.Point, b image.Rectangle, edge dropEdge, group *group) image.Rectangle {
+func (d *layout) dropRectFor(context *guigui.Context, cursor image.Point, b image.Rectangle, edge dropEdge, group *group) image.Rectangle {
 	u := basicwidget.UnitSize(context)
 	edgeX := b.Dx() / 3
 	edgeY := b.Dy() / 3
@@ -1635,7 +1637,7 @@ func (d *Layout) dropRectFor(context *guigui.Context, cursor image.Point, b imag
 	return image.Rectangle{}
 }
 
-func (d *Layout) updateRatio(cursor image.Point) {
+func (d *layout) updateRatio(cursor image.Point) {
 	if d.dragging == nil || d.dragAvailable <= 0 {
 		return
 	}
@@ -1650,7 +1652,7 @@ func (d *Layout) updateRatio(cursor image.Point) {
 	d.dragging.ratio = min(max(ratio, 0.1), 0.9)
 }
 
-func (d *Layout) CursorShape(context *guigui.Context, widgetBounds *guigui.WidgetBounds) (ebiten.CursorShapeType, bool) {
+func (d *layout) CursorShape(context *guigui.Context, widgetBounds *guigui.WidgetBounds) (ebiten.CursorShapeType, bool) {
 	if d.dragPanel != nil || d.dragGroupNode != nil {
 		return 0, false
 	}
@@ -1673,7 +1675,7 @@ func resizeCursorFor(direction Direction) ebiten.CursorShapeType {
 	return ebiten.CursorShapeNSResize
 }
 
-func (d *Layout) Draw(context *guigui.Context, widgetBounds *guigui.WidgetBounds, dst *ebiten.Image) {
+func (d *layout) Draw(context *guigui.Context, widgetBounds *guigui.WidgetBounds, dst *ebiten.Image) {
 	var clr color.RGBA
 	if context.ColorMode() == ebiten.ColorModeLight {
 		clr = color.RGBA{0x80, 0x80, 0x80, 0xff}

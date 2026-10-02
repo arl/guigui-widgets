@@ -7,40 +7,40 @@ import (
 	"github.com/guigui-gui/guigui/basicwidget"
 )
 
-type MapTable struct {
+type mapTable struct {
 	guigui.DefaultWidget
 
 	table        basicwidget.Table[string]
-	rows         []MapTableRow
+	rows         []mapTableRow
 	onSelect     func(id string)
 	buttonHeader string
 	inputHeader  string
 }
 
-type MapTableRow struct {
+type mapTableRow struct {
 	ID, Label, Value string
 }
 
-func (t *MapTable) SetRows(rows []MapTableRow) {
+func (t *mapTable) setRows(rows []mapTableRow) {
 	t.rows = append(t.rows[:0], rows...)
 }
 
-func (t *MapTable) SetHeaders(buttonHeader, inputHeader string) {
+func (t *mapTable) setHeaders(buttonHeader, inputHeader string) {
 	t.buttonHeader = buttonHeader
 	t.inputHeader = inputHeader
 }
 
-func (t *MapTable) OnRowSelected(f func(id string)) {
+func (t *mapTable) onRowSelected(f func(id string)) {
 	t.onSelect = f
 }
 
 // ClearSelection drops the highlighted row. The table reports a click only
 // when the selection changes, so a row left selected cannot be chosen again.
-func (t *MapTable) ClearSelection() {
+func (t *mapTable) clearSelection() {
 	t.table.SelectItemByIndex(-1)
 }
 
-func (t *MapTable) Build(context *guigui.Context, adder *guigui.ChildAdder) error {
+func (t *mapTable) Build(context *guigui.Context, adder *guigui.ChildAdder) error {
 	adder.AddWidget(&t.table)
 	u := basicwidget.UnitSize(context)
 	buttonHeader := t.buttonHeader
@@ -80,11 +80,11 @@ func (t *MapTable) Build(context *guigui.Context, adder *guigui.ChildAdder) erro
 	return nil
 }
 
-func (t *MapTable) Layout(context *guigui.Context, widgetBounds *guigui.WidgetBounds, layouter *guigui.ChildLayouter) {
+func (t *mapTable) Layout(context *guigui.Context, widgetBounds *guigui.WidgetBounds, layouter *guigui.ChildLayouter) {
 	layouter.LayoutWidget(&t.table, widgetBounds.Bounds())
 }
 
-func (t *MapTable) Measure(context *guigui.Context, constraints guigui.Constraints) image.Point {
+func (t *mapTable) Measure(context *guigui.Context, constraints guigui.Constraints) image.Point {
 	u := basicwidget.UnitSize(context)
 	// Table.Measure is a fixed short height and forces an inner scrollbar.
 	// Size to the real list content: header + rows + list corner padding.

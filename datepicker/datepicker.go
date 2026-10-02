@@ -736,12 +736,14 @@ func (d *Docked) SetFirstWeekday(day time.Weekday) {
 	d.firstWeekday = day
 }
 
-// SetMinDate sets the earliest selectable date. The zero value leaves it unbounded.
+// SetMinDate sets the earliest selectable date. The zero value leaves it
+// unbounded.
 func (d *Docked) SetMinDate(date Date) {
 	d.minDate = date
 }
 
-// SetMaxDate sets the latest selectable date. The zero value leaves it unbounded.
+// SetMaxDate sets the latest selectable date. The zero value leaves it
+// unbounded.
 func (d *Docked) SetMaxDate(date Date) {
 	d.maxDate = date
 }
@@ -1031,9 +1033,9 @@ func (m *modalDatePicker) measure(context *guigui.Context, constraints guigui.Co
 	return m.button.Measure(context, constraints)
 }
 
-// Modal is a button that opens a modal calendar dialog. The calendar
-// matches the Material 3 docked date picker (month/year menus, day grid, OK/Cancel)
-// and adds a headline plus a toggle into text-input mode.
+// Modal is a button that opens a modal calendar dialog. The calendar matches
+// the Material 3 docked date picker (month/year menus, day grid, OK/Cancel) and
+// adds a headline plus a toggle into text-input mode.
 type Modal struct {
 	guigui.DefaultWidget
 	modalDatePicker
@@ -1095,8 +1097,8 @@ func (m *Modal) IsOpen() bool {
 	return m.popup.IsOpen()
 }
 
-// ModalDateInput is a button that opens a modal dialog for typing a date, with a
-// toggle into the same calendar as [Modal].
+// ModalDateInput is a button that opens a modal dialog for typing a date, with
+// a toggle into the same calendar as [Modal].
 type ModalDateInput struct {
 	guigui.DefaultWidget
 	modalDatePicker

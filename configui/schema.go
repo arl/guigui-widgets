@@ -1,4 +1,3 @@
-// Package configui derives a guigui settings UI from a plain Go struct.
 package configui
 
 import (

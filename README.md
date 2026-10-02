@@ -14,3 +14,9 @@ Complete docking system for complex and user-friendly UI, see [./example/docked]
 
 ![datepicker](./images/datepicker.png)
 
+
+## configui
+
+Settings UI derived from a Go struct, see [./example/configui-basic](./example/configui-basic/) and [./example/configui-advanced](./example/configui-advanced/)
+
+![configui](./images/configui.png)

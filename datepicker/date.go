@@ -32,11 +32,6 @@ func DateFromTime(t time.Time) Date {
 	return Date{Year: y, Month: m, Day: d}
 }
 
-// NewDate returns the date y/m/d. The values are not normalized.
-func NewDate(year int, month time.Month, day int) Date {
-	return Date{Year: year, Month: month, Day: day}
-}
-
 // IsZero reports whether d is the unset date.
 func (d Date) IsZero() bool {
 	return d.Year == 0 && d.Month == 0 && d.Day == 0

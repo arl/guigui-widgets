@@ -1,4 +1,3 @@
-// Package dock provides a dockable tab and split layout widget.
 package docked
 
 import "github.com/guigui-gui/guigui"
