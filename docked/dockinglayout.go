@@ -225,7 +225,7 @@ func (r *Root) SetOnPanelClosed(f func(*Node)) {
 	r.onPanelClosed = f
 }
 
-func (r *Root) contentAt(p image.Point) guigui.Widget {
+func (r *Root) ContentAt(p image.Point) guigui.Widget {
 	if r.layout.capturingPointer() {
 		return nil
 	}
@@ -249,7 +249,7 @@ func (r *Root) contentAt(p image.Point) guigui.Widget {
 	return nil
 }
 
-func (r *Root) selectedContent(node *Node) guigui.Widget {
+func (r *Root) SelectedContent(node *Node) guigui.Widget {
 	if node == nil {
 		return nil
 	}
