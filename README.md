@@ -20,3 +20,10 @@ Complete docking system for complex and user-friendly UI, see [./example/docked]
 Settings UI derived from a Go struct, see [./example/configui-basic](./example/configui-basic/) and [./example/configui-advanced](./example/configui-advanced/)
 
 ![configui](./images/configui.png)
+
+
+## shortcut
+
+Keyboard shortcut registration, dispatch, and editing, see [./example/shortcut](./example/shortcut/)
+
+![shortcut](./images/shortcut.png)
