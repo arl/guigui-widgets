@@ -7,7 +7,6 @@ import (
 	"image"
 	"os"
 	"path/filepath"
-	"slices"
 
 	"github.com/guigui-gui/guigui"
 	"github.com/guigui-gui/guigui/basicwidget"
@@ -38,13 +37,19 @@ func main() {
 	if err != nil {
 		path = "config-basic.json"
 	}
-	app := &root{cfg: defaultConfig(), path: path}
-	if cfg, err := loadConfig(path); err == nil {
-		app.cfg = cfg
-		fmt.Println("loaded", path)
-	} else if !os.IsNotExist(err) {
-		fmt.Println("load:", err)
+
+	app := &root{
+		cfg:  defaultConfig(),
+		path: path,
 	}
+
+	if cfg, err := loadConfig(path); err != nil {
+		fmt.Fprintln(os.Stderr, "read error:", err)
+		fmt.Println("using default config")
+	} else {
+		app.cfg = cfg
+	}
+
 	if err := guigui.Run(app, &guigui.RunOptions{
 		Title:         "Config",
 		WindowSize:    image.Pt(800, 600),
@@ -61,82 +66,54 @@ type root struct {
 	cfg  config
 	path string
 
-	background basicwidget.Background
-	load       basicwidget.Button
-	save       basicwidget.Button
-	settings   basicwidget.Button
-	editor     configui.Editor[config]
+	settings basicwidget.Button
+	editor   configui.Editor[config]
 
-	buttonItems  []guigui.LinearLayoutItem
 	buttonLayout guigui.LinearLayout
 	items        []guigui.LinearLayoutItem
 }
 
 func (r *root) Build(context *guigui.Context, adder *guigui.ChildAdder) error {
-	adder.AddWidget(&r.background)
-	adder.AddWidget(&r.load)
-	adder.AddWidget(&r.save)
 	adder.AddWidget(&r.settings)
 	adder.AddWidget(&r.editor)
 
 	r.editor.SetTarget(&r.cfg)
 
-	r.load.SetText("Load")
-	r.load.OnDown(func(context *guigui.Context) {
-		cfg, err := loadConfig(r.path)
-		if err != nil {
-			fmt.Println("load:", err)
-			return
-		}
-		r.cfg = cfg
-		fmt.Println("loaded", r.path)
-	})
-
-	r.save.SetText("Save")
-	r.save.OnDown(func(context *guigui.Context) {
-		if err := saveConfig(r.path, r.cfg); err != nil {
-			fmt.Println("save:", err)
-			return
-		}
-		fmt.Println("saved", r.path)
-	})
-
 	r.settings.SetText("Settings")
 	r.settings.OnDown(func(context *guigui.Context) {
 		r.editor.SetOpen(true)
+	})
+	r.editor.OnClose(func(context *guigui.Context, reason basicwidget.PopupCloseReason) {
+		if err := saveConfig(r.path, r.cfg); err != nil {
+			fmt.Fprintln(os.Stderr, "write error:", err)
+		}
 	})
 	context.SetEnabled(&r.settings, !r.editor.IsOpen())
 	return nil
 }
 
 func (r *root) layout(context *guigui.Context) guigui.LinearLayout {
-	u := basicwidget.UnitSize(context)
-	r.buttonItems = slices.Delete(r.buttonItems, 0, len(r.buttonItems))
-	r.buttonItems = append(r.buttonItems,
-		guigui.LinearLayoutItem{Widget: &r.load},
-		guigui.LinearLayoutItem{Widget: &r.save},
-		guigui.LinearLayoutItem{Widget: &r.settings},
-	)
 	r.buttonLayout = guigui.LinearLayout{
 		Direction: guigui.LayoutDirectionHorizontal,
-		Gap:       u / 2,
-		Items:     r.buttonItems,
+		Items: []guigui.LinearLayoutItem{
+			{Size: guigui.FlexibleSize(1)},
+			{Widget: &r.settings},
+			{Size: guigui.FlexibleSize(1)},
+		},
 	}
-	r.items = slices.Delete(r.items, 0, len(r.items))
-	r.items = append(r.items,
-		guigui.LinearLayoutItem{Layout: &r.buttonLayout},
-		guigui.LinearLayoutItem{Size: guigui.FlexibleSize(1)},
-	)
+	r.items = []guigui.LinearLayoutItem{
+		{Size: guigui.FlexibleSize(1)},
+		{Layout: &r.buttonLayout},
+		{Size: guigui.FlexibleSize(1)},
+	}
 	return guigui.LinearLayout{
 		Direction: guigui.LayoutDirectionVertical,
 		Items:     r.items,
-		Padding:   guigui.Padding{Start: u / 2, Top: u / 2, End: u / 2, Bottom: u / 2},
 	}
 }
 
 func (r *root) Layout(context *guigui.Context, widgetBounds *guigui.WidgetBounds, layouter *guigui.ChildLayouter) {
 	bounds := widgetBounds.Bounds()
-	layouter.LayoutWidget(&r.background, bounds)
 	r.layout(context).LayoutWidgets(context, bounds, layouter)
 	layouter.LayoutWidget(&r.editor, bounds)
 }
@@ -150,6 +127,8 @@ func loadConfig(path string) (config, error) {
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return config{}, err
 	}
+
+	fmt.Println("read", path)
 	return cfg, nil
 }
 
@@ -158,5 +137,10 @@ func saveConfig(path string, cfg config) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, append(data, '\n'), 0o644)
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return err
+	}
+
+	fmt.Println("written", path)
+	return nil
 }
